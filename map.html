@@ -1,0 +1,771 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>福井オープンイベントナビ</title>
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7">
+<meta name="viewport" content="target-densitydpi=middle-dpi, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/><!-- default / black / black-translucent -->
+<meta name="format-detection" content="telephone=no"/>
+<link rel="apple-touch-icon" href="map.jpg"/>
+<meta property="og:image" content="map.jpg">
+<script src="https://maps.google.com/maps/api/js?sensor=true"></script>
+<script>"use strict";
+
+var map;
+var bounds;
+
+var BASE_URL_DATA = "http://www.pref.fukui.lg.jp/doc/toukei-jouhou/opendata/jsonp_d/fil/";
+
+var SUPPORT_RETINA = true;
+
+var getTableIndex = function(tbl, name) {
+	var head = tbl[0];
+	for (var i = 0; i < head.length; i++) {
+		if (head[i] == name)
+			return i;
+	}
+	return -1;
+};
+
+var getFacilities = function() {
+	for (var i = 0; i < data.length; i++)
+		if (data[i].name == "shisetsu")
+			return data[i];
+	return null;
+};
+var containsFacility = function(name) {
+	var fa = getFacilities();
+	if (!fa)
+		return false;
+	var items = fa.items;
+	var head = items[0];
+	for (var i = 1; i < items.length; i++) {
+		var name1 = getValueCSV("施設名称", head, items[i]);
+		if (name1 == name)
+			return true;
+	}
+	return false;
+};
+var moveFacility = function(name) {
+	var fa = getFacilities();
+	if (!fa)
+		return;
+	var items = fa.items;
+	var head = items[0];
+	for (var i = 1; i < items.length; i++) {
+		var name1 = getValueCSV("施設名称", head, items[i]);
+		if (name1 == name) {
+			var icon = items[i].icon;
+			icon.onclick.call(icon);
+			return;
+		}
+	}
+};
+var putIcons = function(itemset) {
+	if (bounds == null)
+		bounds = new LatLngBounds();
+	var items = itemset.items;
+	var nlat = getTableIndex(items, "緯度");
+	var nlng = getTableIndex(items, "経度");
+	var head = items[0];
+	
+	var iconfn = itemset.iconfn;
+	for (var i = 1; i < items.length; i++) {
+		var item = items[i];
+		var lat = item[nlat];
+		var lng = item[nlng];
+		if (lat.length == 0 || lng.length == 0 || lat > 40 || lat < 30)
+			continue;
+		
+		var sstday = getValueCSV("開催日開始", head, item);
+		var sedday = getValueCSV("開催日終了", head, item);
+		if (sstday) {
+			var stday = Date.parse(sstday);
+			var edday = Date.parse(sedday) + (1000 * 60 * 60 * 24);
+			var now = new Date().getTime() + (1000 * 60 * 60 * 24) * 0;
+//			if (now > stday)
+//				tr.className = "now";
+			if (now > edday)
+				continue;
+		}
+		
+		item.same = null;
+		for (var j = 1; j < i; j++) {
+			var i2 = items[j];
+			if (i2.icon && i2[nlat] == lat && i2[nlng] == lng) {
+				item.same = i2;
+				break;
+//				if (itemset.name != "shisetsu")
+//				alert("same!! " + itemset.name + " : " + i2[0] + "/" + j + " " + item[0] + "/" + i);
+			}
+		}
+		if (item.same)
+			continue;
+		
+		var pos = new LatLng(lat, lng);
+		var wi = itemset.fit ? 32 : 20;
+		var rwi = SUPPORT_RETINA ? wi * 2 : wi;
+		var iconurl = "img/" + rwi + "x" + rwi + "/" + iconfn;
+		console.log(iconurl);
+		var icon = new MapIcon(map, pos, iconurl, wi, wi);
+		icon.marker.setZIndex(itemset.fit ? 1 : 0);
+		item.icon = icon;
+		item.pos = pos;
+		icon.data = item;
+		icon.head = head;
+		icon.items = items;
+		icon.onclick = function() {
+			var s = [];
+			var head = this.head;
+			s.push("<div id=infodiv class=infodiv>");
+			s.push("<table class=info>");
+			var data = this.data;
+			
+			var mapurl = "https://maps.google.co.jp/maps?q=" + data.pos.lat() + "," + data.pos.lng() + "&iwloc=A";
+			var navi = "<tr><td colspan=2><a class=navi href=" + mapurl + " target=_blank>ココへいく！</a></td></tr>";
+			
+			var writeTable = function(data) {
+				s.push(navi);
+				for (var i = 0; i < data.length; i++) {
+					var h = head[i];
+					var d = data[i];
+					if (d == "" || h == "緯度" || h == "経度")
+						continue;
+					d = d.replace(/\n/g, "<br>");
+					d = d.replace(/●/g, "<br>●");
+					if (d.startsWith("<br>"))
+						d = d.substring(4);
+					if (h.indexOf("価格") >= 0)
+						d = (d.indexOf(",") >= 0 ? d : addComma(d)) + "円";
+					if (h.endsWith("台数"))
+						d += "台";
+					if (h.endsWith("席数"))
+						d += "席";
+					if (h.endsWith("営業時間"))
+						d = d.replace(/-/g, "?").replace(/\//g, " / ");
+					if (h.indexOf("電話番号") >= 0)
+						d = "<a href=tel:" + toHalf(d) + ">" + toHalf(d) + "</a>";
+					if (h.indexOf("URL") >= 0)
+						d = "<a href=" + d + " target=_blank>" + d + "</a>";
+					if (h.indexOf("開催日") >= 0)
+						d = addDay(d);
+					if (h == "開催地" && containsFacility(d))
+						d = "<a href=\"javascript:moveFacility('" + d + "')\">" + d + "</a>";
+					s.push(i % 2 == 0 ? "<tr>" : "<tr class=strongtr>");
+					s.push("<td class=tblname>" + h + "</td><td class=tblval>" + d + "</td></tr>");
+				}
+			};
+			var data = this.data;
+			writeTable(data);
+			
+			var items = this.items;
+			for (var i = 1; i < items.length; i++) {
+				if (items[i].same == data) {
+					s.push("<tr><td class=sep>&nbsp;</td></tr>");
+					writeTable(items[i]);
+				}
+			}
+//			s.push(navi);
+			
+			s.push("</table>");
+			s.push("</div>");
+			this.showContent(s.join(""));
+			
+			// AndroidでInfoWindow内がなぜかスクロールしない問題の回避コード
+			var and = navigator.userAgent.indexOf("Android") >= 0;
+//			and = false;
+			if (and) {
+				setTimeout(function() {
+					var infodiv = get("infodiv");
+					infodiv.bky = null;
+					infodiv.ontouchstart = function(e) {
+						var y = e.touches[0].pageY;
+						this.bky = y;
+					};
+					infodiv.ontouchmove = function(e) {
+						var y = e.touches[0].pageY;
+						this.scrollTop += this.bky - y;
+						this.bky = y;
+						e.preventDefault();
+					};
+				}, 300);
+			}
+		};
+		if (itemset.fit)
+			bounds.extend(pos);
+	}
+	if (itemset.fit)
+		map.fitBounds(bounds);
+};
+
+var swapColumn = function(items, n, m) {
+	for (var i = 0; i < items.length; i++) {
+		var item = items[i];
+		var t = item[n];
+		item[n] = item[m];
+		item[m] = t;
+	}
+};
+var removeColumn = function(items, n) {
+	for (var i = 0; i < items.length; i++) {
+		var item = items[i];
+		item.splice(n, 1);
+	}
+};
+var moveToLastColumn = function(items, n) {
+	for (var i = n; i < items[0].length - 1; i++) {
+		swapColumn(items, i, i + 1);
+	}
+};
+var moveColumn = function(items, from, to) {
+	if (from > to) {
+		for (var i = from; i >= to + 1; i--) {
+			swapColumn(items, i, i - 1);
+		}
+	} else if (from < to) {
+		for (var i = from; i < to; i++) {
+			swapColumn(items, i, i + 1);
+		}
+	}
+};
+
+var convertColumns = function(name, items) {
+	if (name == "event") {
+		removeColumn(items, getTableIndex(items, "地区"));
+		removeColumn(items, getTableIndex(items, "ズームレベル"));
+	} else if (name == "shisetsu") {
+		moveToLastColumn(items, getTableIndex(items, "郵便番号"));
+		moveToLastColumn(items, getTableIndex(items, "自治体名"));
+	} else if (name == "kensoba") {
+		removeColumn(items, getTableIndex(items, "郵便番号"));
+//		moveToLastColumn(items, getTableIndex(items, "郵便番号"));
+	} else if (name == "wakasaji") {
+		var n = getTableIndex(items, "電話番号") + 1;
+		moveColumn(items, getTableIndex(items, "営業時間の備考"), n);
+		moveColumn(items, getTableIndex(items, "営業時間"), n);
+		moveColumn(items, getTableIndex(items, "定休日"), n);
+		moveToLastColumn(items, getTableIndex(items, "店舗No."));
+		moveToLastColumn(items, getTableIndex(items, "地区"));
+　	} else if (name == "donburi") {
+		var n = getTableIndex(items, "電話番号") + 1;
+		moveColumn(items, getTableIndex(items, "備考"), n);
+		moveColumn(items, getTableIndex(items, "営業時間"), n);
+		moveColumn(items, getTableIndex(items, "定休日"), n);
+	} else if (name == "tabekiri") {
+		var n = getTableIndex(items, "電話番号") + 1;
+		moveColumn(items, getTableIndex(items, "営業時間"), n);
+		moveColumn(items, getTableIndex(items, "定休日"), n);
+	} else if (name == "wakasafugu") {
+		var n = getTableIndex(items, "電話番号") + 1;
+		moveColumn(items, getTableIndex(items, "宿名"), n);
+		moveColumn(items, getTableIndex(items, "住所"), n);
+	}
+};
+
+var data = [];
+var loadData = function(name, itemset) {
+	window["csv2jsonp_" + name] = function(items) {
+//		alert(items);
+		convertColumns(name, items);
+		itemset.items = items;
+		itemset.name = name;
+		data.push(itemset);
+		putIcons(itemset);
+	};
+	jsonp(BASE_URL_DATA + name + ".js");
+};
+
+window.onload = function() {
+	map = new Map("map");
+//	map.setCenter(new LatLng(35.95655,136.18447));
+//	map.setZoom(11);
+	
+	loadData("event", { iconfn: "icon_event.png", fit: true });
+	loadData("shisetsu", { iconfn: "icon_facility.png" });
+	loadData("wakasaji", { iconfn: "icon_wakasaji.png" });
+	loadData("donburi", { iconfn: "icon_donburi.png" });
+	loadData("tabekiri", { iconfn: "icon_tabekiri.png" });
+	loadData("wakasafugu", { iconfn: "icon_wakasafugu.png" });
+	loadData("kensoba", { iconfn: "icon_soba.png" });
+
+	var resizeIcon = function(name, resize) {
+		if (map.infowindow)
+			map.infowindow.close();
+		for (var j = 0; j < data.length; j++) {
+			var itemset = data[j];
+			var items = itemset.items;
+			var bounds = null;
+			var path = "img/";
+			var zindex = 0;
+			var wi = 20;
+			if (itemset.name == name) {
+				wi = 32;
+				bounds = new LatLngBounds();
+				zindex = 1;
+			}
+			var rwi = SUPPORT_RETINA ? wi * 2 : wi;
+			path += rwi + "x" + rwi + "/";
+			for (var i = 1; i < items.length; i++) {
+				if (!items[i].icon)
+					continue;
+				var iconfn = path + itemset.iconfn;
+				var icon = new google.maps.MarkerImage(iconfn);
+				icon.scaledSize = new google.maps.Size(wi, wi);
+				items[i].icon.marker.setIcon(icon);
+				if (bounds != null)
+					bounds.extend(items[i].pos);
+				items[i].icon.marker.setZIndex(zindex);
+			}
+			if (bounds != null && resize)
+				map.fitBounds(bounds);
+		}
+	};
+	get("btnevent").onclick = function() {
+		resizeIcon("event", true);
+	};
+	get("btnsoba").onclick = function() {
+		resizeIcon("kensoba", true);
+	};
+	get("btnwakasaji").onclick = function() {
+		resizeIcon("wakasaji", true);
+	};
+	get("btndonburi").onclick = function() {
+		resizeIcon("donburi", true);
+	};
+	get("btntabekiri").onclick = function() {
+		resizeIcon("tabekiri", true);
+	};
+	get("btnwakasafugu").onclick = function() {
+		resizeIcon("wakasafugu", true);
+	};
+	var watchid = null;
+	get("btngps").onclick = function() {
+		/*
+		navigator.geolocation.getCurrentPosition(function(p) {
+			var lat = p.coords.latitude;
+			var lng = p.coords.longitude;
+			map.setCenter(new LatLng(lat, lng));
+			map.setZoom(15);
+		}, function() {
+			alert("現在位置を取得できませんでした。GPSなどがONになっているかご確認ください。");
+		});
+		*/
+		if (navigator == null || navigator.geolocation == null) {
+			alert("お使いの環境では、現在位置の取得に対応していません。");
+			return;
+		}
+		if (watchid != null) {
+			navigator.geolocation.clearWatch(watchid);
+		}
+		watchid = navigator.geolocation.watchPosition(function(p) {
+			navigator.geolocation.clearWatch(watchid);
+			watchid = null;
+			var lat = p.coords.latitude;
+			var lng = p.coords.longitude;
+			map.setCenter(new LatLng(lat, lng));
+			map.setZoom(15);
+		}, function(e) {
+			alert("現在位置を取得できませんでした。GPSなどがONになっているかご確認ください。");
+		}, {
+			maximumAge: 30000,
+			enableHighAccuracy: 1
+		});
+	};
+	get("btnhelp").onclick = function() {
+		get("help").style.display = "block";
+	};
+	get("help").onclick = function() {
+		get("help").style.display = "none";
+	};
+	resizeMap();
+};
+var resizeMap = function() {
+	var w = document.documentElement.clientWidth || window.innerWidth;
+	var h = document.documentElement.clientHeight || window.innerHeight;
+	var gap = 40;
+	if (w < 440 || h < 500)
+		gap += 50;
+	else if (w < 600)
+		gap += 80;
+	else
+		gap += 100;
+	get("map").style.height = (h - gap) + "px";
+};
+window.onresize = resizeMap;
+
+// prevent scroll
+var preventScroll = function(e) {
+	if (get("help").style.display == "block")
+		return;
+	if (event.touches[0].target.tagName.toLowerCase() == "td") {
+		return;
+	}
+	e.preventDefault();
+};
+if (document.addEventListener != null)
+	document.addEventListener("touchmove", preventScroll, false);
+
+// util
+var get = function(id) {
+	return document.getElementById(id);
+};
+var jsonp = function(url) {
+	var head = document.getElementsByTagName("head")[0];
+   	var script = document.createElement("script");
+    script.setAttribute("src", url);
+    script.setAttribute("type", "text/javascript");
+	head.appendChild(script);
+};
+String.prototype.startsWith = function(s) {
+	return this.indexOf(s) == 0;
+};
+String.prototype.endsWith = function(s) {
+	if (s.length > this.length)
+		return false;
+	return this.lastIndexOf(s) == this.length - s.length;
+};
+var addComma = function(num, beam) {
+	if (beam == null)
+		beam = 0;
+	if (isNaN(parseFloat(num)))
+		return num;
+	var f = parseFloat(num) - parseInt(num);
+	var s = "" + parseInt(num);
+	for (var i = 3; i < s.length; i += 4) {
+		s = s.substring(0, s.length - i) + "," + s.substring(s.length - i);
+	}
+	if (beam > 0) {
+		s += "." + fixnum(Math.floor(f * Math.pow(10, beam)), beam);
+	}
+	return s;
+};
+var addDay = function(yymmdd) {
+	var d = new Date(yymmdd);
+	if (d) {
+		var n = d.getDay();
+		if (n == 0)
+			return yymmdd + "(<span class=sunday>日</span>)";
+		if (n == 6)
+			return yymmdd + "(<span class=saturday>土</span>)";
+		return yymmdd + "(" + "日月火水木金土".charAt(n) + ")";
+	}
+	return yymmdd;
+};
+var toHalf = function(s) {
+	var zen = "０１２３４５６７８９ー?（）";
+	var han = "0123456789--()";
+	var res = "";
+	for (var i = 0; i < s.length; i++) {
+		var c = s.charAt(i);
+		var n = zen.indexOf(c);
+		if (n >= 0)
+			c = han.charAt(n);
+		res += c;
+	}
+	return res;
+};
+var getValueCSV = function(name, head, data) {
+	for (var i = 0; i < head.length; i++) {
+		if (head[i] == name)
+			return data[i];
+	}
+	return null;
+};
+
+// --> map util (google map)
+var Map = function(id) {
+	this.map = new google.maps.Map(get(id), {
+//		disableDoubleClickZoom: true,
+		mapTypeId: google.maps.MapTypeId.ROADMAP
+//		mapTypeId: google.maps.MapTypeId.HYBRID,
+	});
+	return;
+};
+Map.prototype = {
+	fitBounds: function(bounds) {
+		this.map.fitBounds(bounds.b);
+	},
+	setZoom: function(zoom) {
+		this.map.setZoom(zoom);
+	},
+	setCenter: function(ll) {
+		this.map.setCenter(ll.p);
+	},
+	getCenter: function() {
+		var p = this.map.getCenter();
+		return new LatLng(p);
+	},
+	panTo: function(ll) {
+		this.map.panTo(ll.p);
+	}
+};
+var LatLng = function(lat, lng) {
+	if (lng != null)
+		this.p = new google.maps.LatLng(lat, lng);
+	else
+		this.p = lat;
+};
+var LatLngBounds = function() {
+	this.b = new google.maps.LatLngBounds();
+};
+LatLngBounds.prototype = {
+	extend: function(ll) {
+		this.b.extend(ll.p);
+	},
+	getCenter: function() {
+		var p = this.b.getCenter();
+		return new LatLng(p);
+	}
+};
+LatLng.prototype = {
+	lat: function() {
+		return this.p.lat();
+	},
+	lng: function() {
+		return this.p.lng();
+	}
+};
+var MapIcon = function(map, pos, iconfn, iw, ih) {
+	var icon = iconfn;
+	if (iw && ih) {
+		icon = new google.maps.MarkerImage(iconfn);
+		icon.scaledSize = new google.maps.Size(iw, ih);
+	}
+	var opt = {
+		map: map.map,
+		position: pos.p,
+		icon: icon
+	};
+	this.map = map;
+	this.marker = new google.maps.Marker(opt);
+	this.marker.parent = this;
+	google.maps.event.addListener(this.marker, "click", function() {
+		if (this.parent.onclick != null) {
+			this.parent.onclick.call(this.parent);
+		}
+	});
+};
+MapIcon.prototype = {
+	setPosition: function(p) {
+		this.marker.setPosition(p.p);
+	},
+	showContent: function(html) {
+		if (this.map.infowindow == null) {
+			this.map.infowindow = new google.maps.InfoWindow();
+		}
+		if (get("map").clientWidth < 400) {
+			this.map.infowindow.setOptions({ maxWidth: 230 });
+		} else if (get("map").clientWidth < 600) {
+			this.map.infowindow.setOptions({ maxWidth: 430 });
+		}
+		this.map.infowindow.setContent(html);
+		this.map.infowindow.open(this.map.map, this.marker);
+	},
+	remove: function() {
+		this.marker.setMap(null);
+	}
+};
+</script>
+<style>
+body {
+	margin: 0;
+    -webkit-text-size-adjust: none;
+}
+#main {
+	text-align: center;
+}
+#map {
+	height: 500px;
+	width: 100%;
+}
+.navi {
+	display: block;
+	background-color: #5383A7;
+	padding: 4px 0px 4px 0px;
+	color: white !important;
+	font-size: 130%;
+	font-weight: bold;
+	text-decoration: none;
+}
+.sep {
+	background-color: white;
+}
+.infodiv {
+	max-height: 300px;
+	overflow: auto;
+}
+.info {
+	border-collapse: collapse;
+}
+.tblname {
+	white-space: nowrap;
+}
+.tblval {
+	text-align: left;
+	padding: 0 0.5em 0 0.5em;
+	word-break: break-all;
+}
+.strongtr {
+	background: #f0f0f0;
+}
+.info a:link {
+	color: #33a;
+}
+.info a:visited {
+	color: #228;
+}
+.sunday {
+	color: #d33;
+}
+.saturday {
+	color: #33d;
+}
+#att {
+	margin: 8px;
+	padding: 8px;
+	background: #b6f079;
+	color: #003;
+	font-size: 100%;
+	line-height: 1.3;
+}
+.description {
+	margin: 8px;
+	padding: 8px;
+	background: #f8f8f8;
+	color: #003;
+	font-size: 90%;
+	line-height: 1.3;
+	text-align: left;
+}
+.description p {
+	margin: .5em;
+}
+#cap {
+	font-size: 110%;
+	margin-right: 10px;
+}
+.btns {
+	x-position: relative;
+	margin-top: 4px;
+	x-top: -100px;
+}
+.btns img {
+	width: 100px;
+	height: 100px;
+	cursor: pointer;
+}
+#help {
+	display: none;
+	position: absolute;
+	top: 0px;
+	margin: 1%;
+	padding: 1%;
+	width: 94%;
+	height: 92%;
+	x-height: 500px;
+	border: #CCC159 5px solid;
+	background: white;
+	opacity: 0.95;
+	overflow: auto;
+}
+#help a {
+	color: #005 !important;
+}
+.credit {
+	margin: 2px 0px 2px 0px;
+	font-size: 80%;
+	color: black;
+}
+.credit a {
+	color: black !important;
+	text-decoration: none;
+	height: 12px;
+	overflow: hidden;
+}
+.helpicon {
+	width: 64px;
+	height: 64px;
+	vertical-align: middle;
+}
+.helptbl {
+	border-collapse: collapse;
+	border: 1px solid gray;
+}
+.helptbl td {
+	padding: 4px;
+	border: 1px solid gray;
+}
+@media screen and (max-width: 600px) {
+	.btns img {
+		width: 80px;
+		height: 80px;
+	}
+}
+@media screen and (max-width: 440px) {
+	.btns img {
+		width: 50px;
+		height: 50px;
+	}
+}
+@media screen and (max-height: 500px) {
+	.btns img {
+		width: 50px;
+		height: 50px;
+	}
+}
+</style>
+</head>
+<body>
+
+<div id="main">
+	<div id="map"></div>
+	<div class="btns">
+		<img src="img/128x128/icon_event.png" id="btnevent" title="イベント情報" />
+		<img src="img/128x128/icon_soba.png" id="btnsoba" title="おいしい福井県産そば使用店認証店" />
+		<img src="img/128x128/icon_wakasaji.png" id="btnwakasaji" title="「若狭路ご膳」登録メニュー提供店" />
+		<img src="img/128x128/icon_donburi.png" id="btndonburi" title="丼ツーリズム in ふくい" />
+		<img src="img/128x128/icon_tabekiri.png" id="btntabekiri" title="食べきり運動協力店応援店" />
+		<img src="img/128x128/icon_wakasafugu.png" id="btnwakasafugu" title="若狭ふぐの宿" />
+		<img src="img/128x128/icon_gps.png" id="btngps" title="GPS" />
+		<img src="img/128x128/icon_help.png" id="btnhelp" title="ヘルプ" />
+	</div>
+	<!--
+	<button id="all">全体</button>
+	<button id="fukui">福井全体</button>
+	<button id="st">福井駅付近</button><br>
+	-->
+	<div class=credit><a href=http://creativecommons.org/licenses/by/2.1/jp/ target=_blank>CC BY</a> <a href=http://www.pref.fukui.jp/ target=_blank>福井県オープンデータ</a></div>
+</div>
+
+<div id=help>
+<span style="position:absolute;top:0px;right:4px;color:gray;font-weight:bold;font-size:170%;cursor:pointer"></span>
+<b>"福井オープンイベントナビ"の使い方</b><br>
+<br>
+福井県や県内市町が提供するイベント情報を地図や現在位置から気軽に見ることができます。<br>
+地図上や、画面下にあるアイコンをタップまたはクリックしてご利用ください。<br>
+<br>
+各アイコンの機能説明<br>
+<table class=helptbl>
+<tr><td><img class=helpicon src=img/128x128/icon_event.png></td><td>イベントを表すアイコンです
+選択することでイベント全体を表示します<r></td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_soba.png></td><td>「おいしい福井県産そば使用店認証店」を表すアイコンです<br>
+選択することで認定店全体を表示します（<a href=http://www.pref.fukui.lg.jp/doc/021033/shop.html target=_blank>詳細はこちら</a>）</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_wakasaji.png></td><td>「若狭路ご膳」新鮮な海の幸など、嶺南地域ならではの豊かな食材を使った昼食メニューを提供するお店を表すアイコンです<br>
+選択することで提供店全体を表示します（<a href=http://www.pref.fukui.lg.jp/doc/brandeigyou/wakasajigozen.html target=_blank>詳細はこちら</a>）</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_donburi.png></td><td>「丼ツーリズム in ふくい」福井県公式ガイドブック「丼ツーリズム in ふくい」で紹介しているお店を表すアイコンです<br>
+選択することで提供店全体を表示します（<a href=http://fukudon.jp/ target=_blank>詳細はこちら</a>）</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_tabekiri.png></td><td>「おいしい食べきり運動」は、残ってしまった料理を家庭では新たな食材としてアレンジ料理に活用し、外食時には持ち帰って家庭で食べきろう！という運動で、その協力・応援しているお店を表すアイコンです<br>
+選択することで提供店全体を表示します（<a href=http://info.pref.fukui.lg.jp/junkan/tabekiri/ target=_blank>詳細はこちら</a>）</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_wakasafugu.png></td><td>若狭ふぐ料理を取り扱う県内の宿泊施設を「若狭ふぐの宿」として認証されているお店を表すアイコンです<br>
+選択することで提供店全体を表示します（<a href=http://www.pref.fukui.jp/doc/suisan/fuguyado1.html target=_blank>詳細はこちら</a>）</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_facility.png></td><td>公共施設を表すアイコンです</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_gps.png></td><td>地図を現在位置を中心に表示します<br>※GPSなどをONにしてご利用ください</td></tr>
+<tr><td><img class=helpicon src=img/128x128/icon_help.png></td><td>このヘルプを表示します</td></tr>
+</table>
+<br>
+福井オープンデータナビは、福井県から CC BY で提供されている、<a href=http://www.pref.fukui.lg.jp/doc/toukei-jouhou/opendata/index.html target=_blank>福井県オープンデータ</a>を使用しています。<br>
+<br>
+このヘルプは、タップまたはクリックで閉じます
+</div>
+
+</body>
+</html>
