@@ -295,9 +295,40 @@ window.onload = function() {
 	loadData("kensoba", { iconfn: "icon_soba.png" });
 	*/
 	
-	var type = "http://purl.org/jrrk#CivicPOI";
+//	var type = "http://purl.org/jrrk#CivicPOI";
+	var type = "http://purl.org/jrrk#CivicEvent";
 //	var type = "http://odp.jig.jp/odp/1.0#RentalCycleStation";
 	
+	var q = f2s(function() {/*
+		select ?uri ?name ?desc ?lat ?lng ?start ?end ?tel {
+			?uri <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/jrrk#CivicEvent>;
+				<http://www.w3.org/2000/01/rdf-schema#label> ?name;
+				<http://schema.org/description> ?desc;
+				<http://www.w3.org/2003/01/geo/wgs84_pos#lat> ?lat;
+				<http://www.w3.org/2003/01/geo/wgs84_pos#long> ?lng;
+				<http://schema.org/contactPoint> / <http://schema.org/telephone> ?tel;
+				<http://www.w3.org/2002/12/cal/icaltzd#dtstart> ?start;
+				<http://www.w3.org/2002/12/cal/icaltzd#dtend> ?end.
+		}
+	*/});
+	prompt(q);
+	querySPARQL(q, function(data) {
+		dump(data);
+		var itemset = { iconfn: "icon_event.png", fit: true };
+		itemset.name = "イベント情報";
+		var items = [];
+		itemset.items = items;
+		var head = [ "名称", "概要", "開催日", "電話番号", "緯度", "経度" ];
+		items.push(head);
+		for (var i = 0; i < data.length; i++) {
+			var d = data[i];
+			var d2 = [ d.name, d.desc, d.start + " - " + d.end, d.lat, d.lng ];
+			items.push(d2);
+		}
+		data.push(itemset);
+		putIcons(itemset);
+	});
+	/*
 	getOpenDataByArea(type, lat, lng, dll, function(data) {
 		dump(data);
 		var itemset = { iconfn: "icon_event.png", fit: true };
@@ -314,7 +345,7 @@ window.onload = function() {
 		data.push(itemset);
 		putIcons(itemset);
 	});
-	
+	*/
 	
 	var resizeIcon = function(name, resize) {
 		if (map.infowindow)
