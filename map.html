@@ -8,12 +8,13 @@
 <link rel="apple-touch-icon" href="map.jpg"/>
 <meta property="og:image" content="map.jpg">
 <script src="https://maps.google.com/maps/api/js?key=AIzaSyCfbWrf5isAqdEGdSNxa_NeUDqThEmRt8Q"></script>
+<script src="opendatacc.js"></script>
 <script>"use strict";
 
 var map;
 var bounds;
 
-var BASE_URL_DATA = "http://www.pref.fukui.lg.jp/doc/toukei-jouhou/opendata/jsonp_d/fil/";
+//var BASE_URL_DATA = "http://www.pref.fukui.lg.jp/doc/toukei-jouhou/opendata/jsonp_d/fil/";
 
 var SUPPORT_RETINA = true;
 
@@ -276,9 +277,14 @@ var loadData = function(name, itemset) {
 
 window.onload = function() {
 	map = new Map("map");
-//	map.setCenter(new LatLng(35.95655,136.18447));
-//	map.setZoom(11);
+	var lat = 35.95655;
+	var lng = 136.18447;
+	var dll = 0.5;
 	
+	map.setCenter(new LatLng(lat, lng));
+	map.setZoom(11);
+	
+	/*
 	loadData("event", { iconfn: "icon_event.png", fit: true });
 	loadData("shisetsu", { iconfn: "icon_facility.png" });
 	loadData("wakasaji", { iconfn: "icon_wakasaji.png" });
@@ -286,6 +292,11 @@ window.onload = function() {
 	loadData("tabekiri", { iconfn: "icon_tabekiri.png" });
 	loadData("wakasafugu", { iconfn: "icon_wakasafugu.png" });
 	loadData("kensoba", { iconfn: "icon_soba.png" });
+*/
+	getOpenDataPOI(lat, lng, dll, function(data) {
+		dump(data);
+	});
+	
 
 	var resizeIcon = function(name, resize) {
 		if (map.infowindow)
