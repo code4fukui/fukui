@@ -78,6 +78,8 @@ var putIcons = function(itemset) {
 //		if (lat.length == 0 || lng.length == 0 || lat > 40 || lat < 30)
 //			continue;
 		
+		console.log(lat, lng);
+		
 		var sstday = getValueCSV("開催日開始", head, item);
 		var sedday = getValueCSV("開催日終了", head, item);
 		if (sstday) {
@@ -311,7 +313,6 @@ window.onload = function() {
 				<http://www.w3.org/2002/12/cal/icaltzd#dtend> ?end.
 		}
 	*/});
-	prompt(q);
 	querySPARQL(q, function(res) {
 		dump(res);
 		res = res.results.bindings;
@@ -319,13 +320,14 @@ window.onload = function() {
 		itemset.name = "イベント情報";
 		var items = [];
 		itemset.items = items;
-		var head = [ "名称", "概要", "開催日", "電話番号", "緯度", "経度" ];
+		var head = [ "名称", "概要", "開催日開始", "開催日終了", "電話番号", "緯度", "経度" ];
 		items.push(head);
 		for (var i = 0; i < res.length; i++) {
 			var d = res[i];
-			var d2 = [ d.name, d.desc, d.start + " - " + d.end, d.tel, d.lat, d.lng ];
+			var d2 = [ d.name, d.desc, d.start, d.end, d.tel, d.lat, d.lng ];
 			items.push(d2);
 		}
+		dump(itemset);
 		data.push(itemset);
 		putIcons(itemset);
 	});
