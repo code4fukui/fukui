@@ -324,7 +324,7 @@ window.onload = function() {
 		items.push(head);
 		for (var i = 0; i < res.length; i++) {
 			var d = res[i];
-			var d2 = [ d.name, d.desc, d.start, d.end, d.tel, d.lat, d.lng ];
+			var d2 = [ d.name.value, d.desc.value, d.start.value, d.end.value, d.tel.value, d.lat.value, d.lng.value ];
 			items.push(d2);
 		}
 		dump(itemset);
