@@ -280,7 +280,7 @@ window.onload = function() {
 	map = new Map("map");
 	var lat = 35.95655;
 	var lng = 136.18447;
-	var dll = 0.5;
+	var dll = 1;
 	
 	map.setCenter(new LatLng(lat, lng));
 	map.setZoom(11);
@@ -294,10 +294,17 @@ window.onload = function() {
 	loadData("wakasafugu", { iconfn: "icon_wakasafugu.png" });
 	loadData("kensoba", { iconfn: "icon_soba.png" });
 */
+		queryItemSPARQL("http://odp.jig.jp/odp/1.0#RentalCycleStation", function(data) {
+			dump(data);
+		};
+		/*
 	getOpenDataPOI(lat, lng, dll, function(data) {
 		dump(data);
+		
+		alert(1);
+		
 	});
-	
+	*/
 
 	var resizeIcon = function(name, resize) {
 		if (map.infowindow)
