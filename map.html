@@ -314,6 +314,7 @@ window.onload = function() {
 	prompt(q);
 	querySPARQL(q, function(data) {
 		dump(data);
+		data = data.results.bindings;
 		var itemset = { iconfn: "icon_event.png", fit: true };
 		itemset.name = "イベント情報";
 		var items = [];
