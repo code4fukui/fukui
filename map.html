@@ -316,7 +316,7 @@ window.onload = function() {
 		}
 	*/});
 	querySPARQL(q, function(res) {
-		dump(res);
+//		dump(res);
 		res = res.results.bindings;
 		var itemset = { iconfn: "icon_event.png", fit: true };
 		itemset.name = "イベント情報";
@@ -329,7 +329,7 @@ window.onload = function() {
 			var d2 = [ d.name.value, d.type.value, d.desc.value, d.start.value, d.end.value, d.tel.value, d.loc.value, d.lat.value, d.lng.value ];
 			items.push(d2);
 		}
-		dump(itemset);
+//		dump(itemset);
 		data.push(itemset);
 		putIcons(itemset);
 	});
