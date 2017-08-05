@@ -302,13 +302,15 @@ window.onload = function() {
 //	var type = "http://odp.jig.jp/odp/1.0#RentalCycleStation";
 	
 	var q = f2s(function() {/*
-		select ?uri ?name ?desc ?lat ?lng ?start ?end ?tel {
+		select ?uri ?name ?desc ?lat ?lng ?start ?end ?tel ?loc ?type {
 			?uri <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/jrrk#CivicEvent>;
 				<http://www.w3.org/2000/01/rdf-schema#label> ?name;
 				<http://schema.org/description> ?desc;
 				<http://www.w3.org/2003/01/geo/wgs84_pos#lat> ?lat;
 				<http://www.w3.org/2003/01/geo/wgs84_pos#long> ?lng;
 				<http://schema.org/contactPoint> / <http://schema.org/telephone> ?tel;
+				<http://schema.org/location> / <http://www.w3.org/2000/01/rdf-schema#label> ?loc;
+				<http://imi.ipa.go.jp/ns/core/rdf#種別> ?type;
 				<http://www.w3.org/2002/12/cal/icaltzd#dtstart> ?start;
 				<http://www.w3.org/2002/12/cal/icaltzd#dtend> ?end.
 		}
@@ -320,11 +322,11 @@ window.onload = function() {
 		itemset.name = "イベント情報";
 		var items = [];
 		itemset.items = items;
-		var head = [ "名称", "概要", "開催日開始", "開催日終了", "電話番号", "緯度", "経度" ];
+		var head = [ "名称", "種別", "概要", "開催日開始", "開催日終了", "電話番号", "場所", "緯度", "経度" ];
 		items.push(head);
 		for (var i = 0; i < res.length; i++) {
 			var d = res[i];
-			var d2 = [ d.name.value, d.desc.value, d.start.value, d.end.value, d.tel.value, d.lat.value, d.lng.value ];
+			var d2 = [ d.name.value, d.type.value, d.desc.value, d.start.value, d.end.value, d.tel.value, d.loc.value, d.lat.value, d.lng.value ];
 			items.push(d2);
 		}
 		dump(itemset);
