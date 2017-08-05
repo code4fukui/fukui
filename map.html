@@ -312,17 +312,17 @@ window.onload = function() {
 		}
 	*/});
 	prompt(q);
-	querySPARQL(q, function(data) {
-		dump(data);
-		data = data.results.bindings;
+	querySPARQL(q, function(res) {
+		dump(res);
+		res = res.results.bindings;
 		var itemset = { iconfn: "icon_event.png", fit: true };
 		itemset.name = "イベント情報";
 		var items = [];
 		itemset.items = items;
 		var head = [ "名称", "概要", "開催日", "電話番号", "緯度", "経度" ];
 		items.push(head);
-		for (var i = 0; i < data.length; i++) {
-			var d = data[i];
+		for (var i = 0; i < res.length; i++) {
+			var d = res[i];
 			var d2 = [ d.name, d.desc, d.start + " - " + d.end, d.lat, d.lng ];
 			items.push(d2);
 		}
