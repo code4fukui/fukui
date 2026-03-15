@@ -1,4 +1,7 @@
 # fukui
+
+> 日本語のREADMEはこちらです: [README.ja.md](README.ja.md)
+
 Open Data Apps in Fukui
 
 ## Demo
