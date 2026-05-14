@@ -6,7 +6,7 @@ An interactive map application, "Fukui Open Event Navi," that visualizes open da
 
 ## Demo
 
-:earth_asia: **Live Map:** [https://codeforfukui.github.io/fukui/map.html](https://codeforfukui.github.io/fukui/map.html)
+:earth_asia: **Live Map:** ~~https://codeforfukui.github.io/fukui/map.html~~ *(unavailable)* *(demo unavailable)*
 
 ## Features
 

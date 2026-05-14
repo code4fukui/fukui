@@ -4,7 +4,7 @@
 
 ## デモ
 
-:earth_asia: **ライブマップ:** [https://codeforfukui.github.io/fukui/map.html](https://codeforfukui.github.io/fukui/map.html)
+:earth_asia: **ライブマップ:** ~~https://codeforfukui.github.io/fukui/map.html~~ *(unavailable)* *(demo unavailable)*
 
 ## 機能
 
